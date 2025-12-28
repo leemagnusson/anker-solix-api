@@ -17,8 +17,8 @@ CONSOLE: logging.Logger = common.CONSOLE
 
 mqtt_session = None
 mqttdevice = None
-battery_max=60
-battery_min=55
+battery_max=54
+battery_min=50
 
 def print_message(
         session: AnkerSolixMqttSession,
@@ -30,7 +30,7 @@ def print_message(
         **kwargs,
     ) -> None:
     """Print received MQTT message."""
-    CONSOLE.info(f"MQTT Message Received - Topic: {topic}, Message: {message}")
+    #CONSOLE.info(f"MQTT Message Received - Topic: {topic}, Message: {message}")
     #hd = DeviceHexData(model=model or "", hexbytes=data)
     #CONSOLE.info(f"Parsed Data: {hd}")
     #CONSOLE.info(hd.decode())
@@ -101,38 +101,40 @@ async def main():
 
         # Example commands using F3800 wrapper methods
         try:
-            while(mqtt_session.client.is_connected()):
-                # CONSOLE.info("\nGenerating AC output ON")
-                # await mqttdevice.set_ac_output(enabled=True)
-                # await asyncio.sleep(1)
+            
+            # CONSOLE.info("\nGenerating AC output ON")
+            # await mqttdevice.set_ac_output(enabled=True)
+            # await asyncio.sleep(1)
 
-                prefix = mqtt_session.get_topic_prefix(deviceDict=device_dict)
-                CONSOLE.info(f"Subscribing to topic prefix: {prefix}#")
-                topics = set()
-                topics.add(f"{prefix}#")
-                trigger_devices = set()
-                #trigger_devices.add(device_sn)
+            prefix = mqtt_session.get_topic_prefix(deviceDict=device_dict)
+            CONSOLE.info(f"Subscribing to topic prefix: {prefix}#")
+            topics = set()
+            topics.add(f"{prefix}#")
+            trigger_devices = set()
+            #trigger_devices.add(device_sn)
 
 
-                poller_task = loop.create_task(
-                    mqtt_session.message_poller(
-                        topics=topics,
-                        trigger_devices=trigger_devices,
-                        msg_callback=print_message,
-                        timeout=60,
-                    )
+            poller_task = loop.create_task(
+                mqtt_session.message_poller(
+                    topics=topics,
+                    trigger_devices=trigger_devices,
+                    msg_callback=print_message,
+                    timeout=60,
                 )
+            )
 
-                await asyncio.sleep(2)  # Wait for subscription to complete
+            await asyncio.sleep(2)  # Wait for subscription to complete
 
+            while(mqtt_session.client.is_connected()):
                 if mqtt_session.status_request(
                     deviceDict=device_dict,
                     wait_for_publish=2,
                 ).is_published():
-                    CONSOLE.info(
-                        f"Published immediate status request, status message(s) should appear shortly..."
-                    )
-
+                    print("pub", end="")
+                    # CONSOLE.info(
+                    #     f"Published immediate status request, status message(s) should appear shortly..."
+                    # )
+                await asyncio.sleep(2)
                 # if mqtt_session.realtime_trigger(
                 #     deviceDict=device_dict,
                 #     timeout=60,
@@ -143,19 +145,25 @@ async def main():
                 #     )
                 data = mqtt_session.mqtt_data.get(device_sn)
                 if data:
-                    CONSOLE.info("-" * 100)
-                    CONSOLE.info(f"battery_soc: {data["main_battery_soc"]}%")
-                    CONSOLE.info(f"ac switch: {data["ac_output_power_switch"]}")
+                    print("  " + str(data["main_battery_soc"]), end="")
+                    print("  " + str(data["ac_output_power_switch"]), end="")
+                    #CONSOLE.info(f"battery_soc: {data["main_battery_soc"]}%")
+                    #CONSOLE.info(f"ac switch: {data["ac_output_power_switch"]}")
                     soc = int(data["main_battery_soc"])
                     ac_switch = int(data["ac_output_power_switch"])
 
 
                     if soc >= battery_max and ac_switch == 0:
-                        CONSOLE.info(f"battery_soc >= {battery_max}%, turning ON AC output")
+                        print(" ON", end="")
+                        #CONSOLE.info(f"battery_soc >= {battery_max}%, turning ON AC output")
                         await mqttdevice.set_ac_output(enabled=True)
                     elif soc <= battery_min and ac_switch == 1:
-                        CONSOLE.info(f"battery_soc <= {battery_min}%, turning OFF AC output")
+                        print(" OFF", end="")
+                        #CONSOLE.info(f"battery_soc <= {battery_min}%, turning OFF AC output")
                         await mqttdevice.set_ac_output(enabled=False)
+                    else:
+                        print("  no action", end="")
+                print("")
 
                 await asyncio.sleep(30)  # Wait to receive messages
 
