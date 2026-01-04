@@ -17,8 +17,8 @@ CONSOLE: logging.Logger = common.CONSOLE
 
 mqtt_session = None
 mqttdevice = None
-battery_max=54
-battery_min=50
+battery_max=70
+battery_min=30
 
 def print_message(
         session: AnkerSolixMqttSession,
@@ -130,7 +130,7 @@ async def main():
                     deviceDict=device_dict,
                     wait_for_publish=2,
                 ).is_published():
-                    print("pub", end="")
+                    print(f"{datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}", end="")
                     # CONSOLE.info(
                     #     f"Published immediate status request, status message(s) should appear shortly..."
                     # )
