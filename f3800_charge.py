@@ -80,14 +80,20 @@ async def main():
         await myapi.update_device_details()
 
         # Find A1790P device
-        device_sn = None
-        device_dict = None
+        device_sn = []
+        device_dict = []
         for sn, device in myapi.devices.items():
             if device.get("device_pn") in ["A1790"]:
-                device_sn = sn
-                device_dict = device
+                device_sn.append(sn)
+                device_dict.append(device)
                 CONSOLE.info(f"Found {device.get("device_pn")} device: {sn}")
-                break
+        
+        index = None
+        while not index:
+            index = input("index: ")
+        index = int(index)
+        device_sn = device_sn[index]
+        device_dict = device_dict[index]
 
         mqttdevice = SolixMqttDevicePps(api_instance=myapi, device_sn=device_sn)
 
@@ -145,6 +151,10 @@ async def main():
                 #     )
                 data = mqtt_session.mqtt_data.get(device_sn)
                 if data:
+                    print("  " + str(data["photovoltaic_power"]), end="")
+                    print("  " + str(data["ac_input_power"]), end="")
+                    print("  " + str(data["ac_output_power"]), end="")
+
                     print("  " + str(data["main_battery_soc"]), end="")
                     print("  " + str(data["ac_output_power_switch"]), end="")
                     #CONSOLE.info(f"battery_soc: {data["main_battery_soc"]}%")
