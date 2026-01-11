@@ -88,14 +88,18 @@ async def main():
                 device_dict.append(device)
                 CONSOLE.info(f"Found {device.get("device_pn")} device: {sn}")
         
-        index = None
-        while not index:
-            index = input("index: ")
-        index = int(index)
-        device_sn = device_sn[index]
-        device_dict = device_dict[index]
+        # ac source: f3800, AZV7440E33200077
+        # ac sink; f3800 2, AZV7440E49100052
+        # index = None
+        # while not index:
+        #     index = input("index: ")
+        # index = int(index)
+        # device_sn = device_sn[index]
+        # device_dict = device_dict[index]
 
-        mqttdevice = SolixMqttDevicePps(api_instance=myapi, device_sn=device_sn)
+        mqttdevice = []
+        mqttdevice.append(SolixMqttDevicePps(api_instance=myapi, device_sn=device_sn[0]))
+        mqttdevice.append(SolixMqttDevicePps(api_instance=myapi, device_sn=device_sn[1]))
 
         # Start MQTT session for real-time data
         mqtt_session = await myapi.startMqttSession()
@@ -111,11 +115,11 @@ async def main():
             # CONSOLE.info("\nGenerating AC output ON")
             # await mqttdevice.set_ac_output(enabled=True)
             # await asyncio.sleep(1)
-
-            prefix = mqtt_session.get_topic_prefix(deviceDict=device_dict)
-            CONSOLE.info(f"Subscribing to topic prefix: {prefix}#")
             topics = set()
-            topics.add(f"{prefix}#")
+            for i in range(2):
+                prefix = mqtt_session.get_topic_prefix(deviceDict=device_dict[i])
+                CONSOLE.info(f"Subscribing to topic prefix: {prefix}#")
+                topics.add(f"{prefix}#")
             trigger_devices = set()
             #trigger_devices.add(device_sn)
 
@@ -130,50 +134,55 @@ async def main():
             )
 
             await asyncio.sleep(2)  # Wait for subscription to complete
+            dev = ["", ""]
 
             while(mqtt_session.client.is_connected()):
-                if mqtt_session.status_request(
-                    deviceDict=device_dict,
-                    wait_for_publish=2,
-                ).is_published():
-                    print(f"{datetime.now().strftime("%m/%d/%Y, %H:%M:%S")}", end="")
-                    # CONSOLE.info(
-                    #     f"Published immediate status request, status message(s) should appear shortly..."
-                    # )
-                await asyncio.sleep(2)
-                # if mqtt_session.realtime_trigger(
-                #     deviceDict=device_dict,
-                #     timeout=60,
-                #     wait_for_publish=2,
-                # ).is_published():
-                #     CONSOLE.info(
-                #         f"Published one time real time trigger request, message frequency should appear shortly..."
-                #     )
-                data = mqtt_session.mqtt_data.get(device_sn)
-                if data:
-                    print("  " + str(data["photovoltaic_power"]), end="")
-                    print("  " + str(data["ac_input_power"]), end="")
-                    print("  " + str(data["ac_output_power"]), end="")
+                for i in range(2):
+                    if mqtt_session.status_request(
+                        deviceDict=device_dict[i],
+                        wait_for_publish=2,
+                    ).is_published():
+                        print(f"{datetime.now().strftime(f"{i} %m/%d/%Y, %H:%M:%S")}", end="")
 
-                    print("  " + str(data["main_battery_soc"]), end="")
-                    print("  " + str(data["ac_output_power_switch"]), end="")
-                    #CONSOLE.info(f"battery_soc: {data["main_battery_soc"]}%")
-                    #CONSOLE.info(f"ac switch: {data["ac_output_power_switch"]}")
-                    soc = int(data["main_battery_soc"])
-                    ac_switch = int(data["ac_output_power_switch"])
+                    await asyncio.sleep(2)
+                    # if mqtt_session.realtime_trigger(
+                    #     deviceDict=device_dict,
+                    #     timeout=60,
+                    #     wait_for_publish=2,
+                    # ).is_published():
+                    #     CONSOLE.info(
+                    #         f"Published one time real time trigger request, message frequency should appear shortly..."
+                    #     )
+                    data = mqtt_session.mqtt_data.get(device_sn[i])
+                    if data:
+                        print("  " + str(data["photovoltaic_power"]), end="")
+                        print("  " + str(data["ac_input_power"]), end="")
+                        print("  " + str(data["ac_output_power"]), end="")
 
+                        print("  " + str(data["main_battery_soc"]), end="")
+                        print("  " + str(data["ac_output_power_switch"]), end="")
+                        #CONSOLE.info(f"battery_soc: {data["main_battery_soc"]}%")
+                        #CONSOLE.info(f"ac switch: {data["ac_output_power_switch"]}")
+                        soc = int(data["main_battery_soc"])
+                        ac_switch = int(data["ac_output_power_switch"])
 
-                    if soc >= battery_max and ac_switch == 0:
-                        print(" ON", end="")
-                        #CONSOLE.info(f"battery_soc >= {battery_max}%, turning ON AC output")
-                        await mqttdevice.set_ac_output(enabled=True)
-                    elif soc <= battery_min and ac_switch == 1:
-                        print(" OFF", end="")
-                        #CONSOLE.info(f"battery_soc <= {battery_min}%, turning OFF AC output")
-                        await mqttdevice.set_ac_output(enabled=False)
-                    else:
-                        print("  no action", end="")
-                print("")
+                        if ac_switch == 1:
+                            dev[i] = "on"
+                        else:
+                            dev[i] = "off"
+
+                        if soc >= battery_max and ac_switch == 0 and dev[1] == "off" and i == 0:
+                            print(" ON", end="")
+                            await mqttdevice[i].set_ac_output(enabled=True)
+                        elif soc <= battery_min and ac_switch == 1:
+                            print(" OFF", end="")
+                            await mqttdevice[i].set_ac_output(enabled=False)
+                        elif dev[1] == "on" and dev[0] == "on" and i == 0:
+                            print(" OFF", end="")
+                            await mqttdevice[i].set_ac_output(enabled=False)
+                        else:
+                            print("  no action", end="")
+                        print("")
 
                 await asyncio.sleep(30)  # Wait to receive messages
 
