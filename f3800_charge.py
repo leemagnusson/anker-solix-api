@@ -171,7 +171,7 @@ async def main():
                         else:
                             dev[i] = "off"
 
-                        if soc >= battery_max and ac_switch == 0 and dev[1] == "off" and i == 0:
+                        if soc >= battery_max and ac_switch == 0 and (i == 1 or dev[1] == "off"):
                             print(" ON", end="")
                             await mqttdevice[i].set_ac_output(enabled=True)
                         elif soc <= battery_min and ac_switch == 1:
