@@ -6,6 +6,9 @@ ExecStart=/home/lee/.virtualenvs/solix/bin/python /home/lee/anker-solix-api/f380
 Restart=always
 RestartSec=5
 StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+Type=simple
 
 User=lee
 Group=lee
