@@ -3,6 +3,7 @@
 import asyncio
 from datetime import datetime
 import logging
+import argparse
 
 from aiohttp import ClientSession
 from api.api import AnkerSolixApi
@@ -65,9 +66,11 @@ def print_message(
 
 
 
-async def main():
+async def main(args):
     global mqtt_session
     global mqttdevice
+
+    print(args)
     """Example of controlling A1790P device via MQTT."""
     async with ClientSession() as websession:
         # Initialize API
@@ -171,17 +174,27 @@ async def main():
                         else:
                             dev[i] = "off"
 
-                        if soc >= battery_max and ac_switch == 0 and (i == 1 or dev[1] == "off"):
-                            print(" ON", end="")
-                            await mqttdevice[i].set_ac_output(enabled=True)
-                        elif soc <= battery_min and ac_switch == 1:
-                            print(" OFF", end="")
-                            await mqttdevice[i].set_ac_output(enabled=False)
-                        elif dev[1] == "on" and dev[0] == "on" and i == 0:
-                            print(" OFF", end="")
-                            await mqttdevice[i].set_ac_output(enabled=False)
+                        if args.combined:
+                            if soc >= battery_max and ac_switch == 0 and (i == 1 or dev[1] == "off"):
+                                print(" ON", end="")
+                                await mqttdevice[i].set_ac_output(enabled=True)
+                            elif soc <= battery_min and ac_switch == 1:
+                                print(" OFF", end="")
+                                await mqttdevice[i].set_ac_output(enabled=False)
+                            elif dev[1] == "on" and dev[0] == "on" and i == 0:
+                                print(" OFF", end="")
+                                await mqttdevice[i].set_ac_output(enabled=False)
+                            else:
+                                print("  no action", end="")
                         else:
-                            print("  no action", end="")
+                            if soc >= battery_max and ac_switch == 0:
+                                print(" ON", end="")
+                                await mqttdevice[i].set_ac_output(enabled=True)
+                            elif soc <= battery_min and ac_switch == 1:
+                                print(" OFF", end="")
+                                await mqttdevice[i].set_ac_output(enabled=False)
+                            else:
+                                print("  no action", end="")
                         print("")
 
                 await asyncio.sleep(30)  # Wait to receive messages
@@ -198,8 +211,11 @@ async def main():
                 mqtt_session.cleanup()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--combined", action="store_true", help="run combined")
+    args = parser.parse_args()
     try:
-        asyncio.run(main())
+        asyncio.run(main(args))
     except KeyboardInterrupt:
         CONSOLE.info("\nKeyboard interrupt")
     except Exception as err:

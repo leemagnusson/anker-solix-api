@@ -1,0 +1,14 @@
+[Unit]
+Description=f3800 charge
+
+[Service]
+ExecStart=/home/lee/.virtualenvs/solix/bin/python /home/lee/anker-solix-api/f3800_charge.py %i
+Restart=always
+RestartSec=5
+StandardOutput=journal
+
+User=lee
+Group=lee
+
+[Install]
+WantedBy=multi-user.target
